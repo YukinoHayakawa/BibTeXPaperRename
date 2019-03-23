@@ -6,6 +6,7 @@ import glob
 import PyPDF2
 from pathvalidate import sanitize_filename
 from pprint import pprint
+import subprocess
 
 ################################ CONFIGURATION #################################
 
@@ -41,6 +42,8 @@ def collect_bib_entries():
 
 # https://medium.com/@rqaiserr/how-to-convert-pdfs-into-searchable-key-words-with-python-85aab86c544f
 def read_pdf_first_page_compact(pdfname):
+    # return subprocess.check_output(["bash", "firstpage.sh", pdfname]).decode(sys.stdout.encoding)
+
     pdfFileObj = open(pdfname, 'rb')
     # The pdfReader variable is a readable object that will be parsed
     pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
@@ -90,3 +93,7 @@ def update_all_pdfs(folder):
             except Exception as e:
                 print(e)
 
+def download_all_pdfs(folder):
+    pass
+
+update_all_pdfs(".")
