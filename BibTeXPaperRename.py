@@ -34,15 +34,21 @@ def collect_bib_entries():
         with open(bib) as bibtex_file:
             bibdb += bibtexparser.load(bibtex_file).entries
 
-    unmatched = []
-
-    # remove dobule braces
+    # remove double braces
     for entry in bibdb:
         title = entry['title']
         # https://stackoverflow.com/questions/19954593/python-checking-a-strings-first-and-last-character
         if title.startswith('{') and title.endswith('}'):
             # https://stackoverflow.com/questions/3085382/python-how-can-i-strip-first-and-last-double-quotes
             entry['title'] = title[1:-1]
+
+    return bibdb
+
+def collect_bib_entries_unmatched():
+    bibdb = collect_bib_entries()
+    unmatched = []
+
+    for entry in bibdb:
         filename = make_filename(entry)
         if os.path.exists(filename):
             # entry already has matched pdf file
@@ -111,7 +117,7 @@ def update_all_pdfs(folder):
     BASE_PATH = os.path.abspath(folder)
     print("Updating pdf filenames in {}".format(folder))
     os.chdir(folder)
-    bibdb = collect_bib_entries()
+    bibdb = collect_bib_entries_unmatched()
     print("Ignoring {} known pdf files".format(len(KNOWN_FILES)))
 
     # pprint(bibdb)
@@ -125,7 +131,7 @@ def update_all_pdfs(folder):
                 print(e)
 
     # collect unmatched bibtex entries after renaming
-    bibdb = collect_bib_entries()
+    bibdb = collect_bib_entries_unmatched()
     if bibdb:
         print("{} BibTeX entries not matched with any pdf files:".format(len(bibdb)))
         for entry in bibdb:
@@ -140,5 +146,8 @@ def update_all_pdfs(folder):
 
 def download_all_pdfs(folder):
     pass
+
+# def rename_single_pdf(folder, pdf):
+#     update_pdf
 
 update_all_pdfs(".")
