@@ -1,0 +1,4 @@
+pathvalidate
+bibtexparser
+watchdog
+PyMuPDF

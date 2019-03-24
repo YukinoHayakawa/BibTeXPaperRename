@@ -9,6 +9,8 @@ import pathlib
 
 ################################ CONFIGURATION #################################
 
+OPEN_RENAMED = True
+
 def make_filename(bibentry):
     clean_title = bibentry['title'].strip()
     clean_title = sanitize_filename(clean_title, "")
@@ -108,6 +110,8 @@ def update_pdf(bibdb, pdfname):
         print("    '{1}' <- '{0}'".format(pdfname, newname))
         print("        Open: {}".format(pathlib.Path(os.path.join(BASE_PATH, newname)).as_uri()))
         os.rename(pdfname, newname)
+        if OPEN_RENAMED:
+            os.startfile(newname)
         RENAMED.add(newname)
     else:
         UNKNOWN_FILES.append(pdfname)
@@ -147,7 +151,10 @@ def update_all_pdfs(folder):
 def download_all_pdfs(folder):
     pass
 
-# def rename_single_pdf(folder, pdf):
-#     update_pdf
-
-update_all_pdfs(".")
+def rename_single_pdf(pdfpath):
+    fullpath = os.path.abspath(pdfpath)
+    global BASE_PATH
+    BASE_PATH = os.path.dirname(fullpath)
+    os.chdir(BASE_PATH)
+    bibdb = collect_bib_entries()
+    update_pdf(bibdb, os.path.basename(fullpath))
