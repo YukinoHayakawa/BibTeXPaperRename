@@ -1,12 +1,11 @@
 import os
 import re
-# import sys
 import bibtexparser
 import glob
-import PyPDF2
 from pathvalidate import sanitize_filename
-# from pprint import pprint
-# import subprocess
+import fitz
+import urllib
+import pathlib
 
 ################################ CONFIGURATION #################################
 
@@ -19,6 +18,8 @@ def make_filename(bibentry):
 
 KNOWN_FILES = set()
 UNKNOWN_FILES = []
+BASE_PATH = ""
+RENAMED = set()
 
 def compact_string(src):
     # https://stackoverflow.com/questions/8270092/remove-all-whitespace-in-a-string-in-python
@@ -56,15 +57,22 @@ def read_pdf_first_page_compact(pdfname):
     # pypdf can't read some pdf and will produce random characters. however pdftotext works fine.
     # return subprocess.check_output(["bash", "firstpage.sh", pdfname]).decode(sys.stdout.encoding)
 
-    pdfFileObj = open(pdfname, 'rb')
-    # The pdfReader variable is a readable object that will be parsed
-    pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
-    # https://github.com/mstamy2/PyPDF2/issues/51
-    if pdfReader.isEncrypted:
-        pdfReader.decrypt('')
-    ret = compact_string(pdfReader.getPage(0).extractText())
-    pdfFileObj.close()
-    return ret
+    # pdfFileObj = open(pdfname, 'rb')
+    # # The pdfReader variable is a readable object that will be parsed
+    # pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
+    # # https://github.com/mstamy2/PyPDF2/issues/51
+    # if pdfReader.isEncrypted:
+    #     pdfReader.decrypt('')
+    # ret = compact_string(pdfReader.getPage(0).extractText())
+    # pdfFileObj.close()
+    # return ret
+
+    doc = fitz.open(pdfname)
+    page = doc.loadPage(0)
+    text = page.getText("text")
+    doc.close()
+    return compact_string(text)
+
 
 # find bibtex entry in the given bibtex database for a given pdf
 def find_bib_entry(bibdb, pdfname):
@@ -79,7 +87,8 @@ def find_bib_entry(bibdb, pdfname):
             # print('Found BibTeX entry "{}" for "{}"'.format(entry['title'], pdfname))
             if longestmatch == None or len(longestmatch['title']) < len(entry['title']):
                 if longestmatch:
-                    print("Warning: {} has multiple title matches.".format(pdfname))
+                    # print("Warning: {} has multiple title matches.".format(pdfname))
+                    pass
                 longestmatch = entry
 
     return longestmatch
@@ -87,19 +96,22 @@ def find_bib_entry(bibdb, pdfname):
 def update_pdf(bibdb, pdfname):
     entry = find_bib_entry(bibdb, pdfname)
     if entry:
+        if len(entry['title'].split()) < 3:
+            print("Warning: '{}' matched with a short title '{}' which may be a common phrase.".format(pdfname, entry['title']))
         newname = make_filename(entry)
-        print('"{}" -> "{}"'.format(pdfname, newname))
+        print("    '{1}' <- '{0}'".format(pdfname, newname))
+        print("        Open: {}".format(pathlib.Path(os.path.join(BASE_PATH, newname)).as_uri()))
         os.rename(pdfname, newname)
+        RENAMED.add(newname)
     else:
         UNKNOWN_FILES.append(pdfname)
 
 def update_all_pdfs(folder):
+    global BASE_PATH
+    BASE_PATH = os.path.abspath(folder)
     print("Updating pdf filenames in {}".format(folder))
     os.chdir(folder)
     bibdb = collect_bib_entries()
-    print("{} BibTeX entries not matched with any pdf files:".format(len(bibdb)))
-    for entry in bibdb:
-        print("    '{}'".format(entry['title']))
     print("Ignoring {} known pdf files".format(len(KNOWN_FILES)))
 
     # pprint(bibdb)
@@ -112,10 +124,19 @@ def update_all_pdfs(folder):
             except Exception as e:
                 print(e)
 
+    # collect unmatched bibtex entries after renaming
+    bibdb = collect_bib_entries()
+    if bibdb:
+        print("{} BibTeX entries not matched with any pdf files:".format(len(bibdb)))
+        for entry in bibdb:
+            print("    '{}'".format(entry['title']))
+            print("        Google Scholar: https://scholar.google.com/scholar?q={}".format(urllib.parse.quote_plus(entry['title'])))
+            # print("        Sci-Hub: https://scholar.google.com/scholar?q={}".format(urllib.parse.quote_plus(entry['title'])))
+
     if UNKNOWN_FILES:
-        print("No BibTex entry found for the following pdf files:")
+        print("{} pdf files not matched with any BibTex entries:".format(len(UNKNOWN_FILES)))
         for unknown in UNKNOWN_FILES:
-            print("    '{}'".format(unknown))
+            print("    '{}' ({})".format(unknown, pathlib.Path(os.path.join(BASE_PATH, unknown)).as_uri()))
 
 def download_all_pdfs(folder):
     pass
